@@ -2,6 +2,8 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import axios from 'axios';
 
+const MOVIE_API_KEY = import.meta.env.VITE_MOVIE_API_KEY;
+
 export const useMovieStore = defineStore('movie', () => {
     // [1] State (상태 관리 구역)
     const movies = ref([]);
@@ -20,12 +22,13 @@ export const useMovieStore = defineStore('movie', () => {
         errorMessage.value = '';
 
         try {
-            // ⭐️ 본인의 API 키로 교체해야 합니다. (보안을 위해 .env 파일 활용 권장)
-            const API_KEY = '370211e655f450b428326632705087ed';
+            if (!MOVIE_API_KEY) {
+                throw new Error('VITE_MOVIE_API_KEY가 설정되지 않았습니다.');
+            }
 
             // 주의: 'release_date.gte' 처럼 이름에 마침표가 들어간 이름표는 반드시 따옴표로 감싸야 합니다.
             const movieParams = {
-                api_key: API_KEY,
+                api_key: MOVIE_API_KEY,
                 language: 'ko-KR',
                 region: 'KR',
                 sort_by: 'popularity.desc',
@@ -60,11 +63,14 @@ export const useMovieStore = defineStore('movie', () => {
         selectedMovie.value = null;
 
         try {
-            const API_KEY = '370211e655f450b428326632705087ed';
+            if (!MOVIE_API_KEY) {
+                throw new Error('VITE_MOVIE_API_KEY가 설정되지 않았습니다.');
+            }
+
             const url = `https://api.themoviedb.org/3/movie/${movieId}`;
             const response = await axios.get(url, {
                 params: {
-                    api_key: API_KEY,
+                    api_key: MOVIE_API_KEY,
                     language: 'ko-KR'
                 }
             });
