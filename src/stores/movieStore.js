@@ -38,7 +38,7 @@ export const useMovieStore = defineStore('movie', () => {
                 page: 1
             };
 
-            // 깔끔하게 분리된 베이스 주소와 옵션 객체(movieParams)를 매개변수로 안전ㄴ하게 전달
+            // 깔끔하게 분리된 베이스 주소와 옵션 객체(movieParams)를 매개변수로 안전하게 전달
             const response = await axios.get('https://api.themoviedb.org/3/discover/movie', { params: movieParams });
             const fetchedMovies = response.data.results;
 
@@ -74,7 +74,9 @@ export const useMovieStore = defineStore('movie', () => {
                     language: 'ko-KR'
                 }
             });
-            selectedMovie.value = response.data;
+            const detailMovie = response.data;
+            detailMovie.isFavorite = favorites.value.some(fav => fav.id === detailMovie.id);
+            selectedMovie.value = detailMovie;
         } catch (error) {
             if (error.response && error.response.status === 404) {
                 errorMessage.value = '존재하지 않거나 삭제된 영화 정보입니다.';
@@ -88,16 +90,29 @@ export const useMovieStore = defineStore('movie', () => {
 
     // [찜하기 토글 및 세션 스토리지 반영 로직]
     const toggleFavorite = (movieId) => {
-        const movie = movies.value.find(m => m.id === movieId);
+        const listMovie = movies.value.find(m => m.id === movieId);
+        const detailMovie = selectedMovie.value && selectedMovie.value.id === movieId ? selectedMovie.value : null;
+        const movie = listMovie || detailMovie || favorites.value.find(fav => fav.id === movieId);
+
         if (movie) {
-            movie.isFavorite = !movie.isFavorite;
+            const isAlreadyFavorite = favorites.value.some(fav => fav.id === movieId);
+            const nextFavoriteState = !isAlreadyFavorite;
+            movie.isFavorite = nextFavoriteState;
 
             // 하트 활성화 시 전역 찜 목록 금고 배열에 현재 영화 객체를 추가합니다.
-            if (movie.isFavorite) {
-                favorites.value.push(movie);
+            if (nextFavoriteState) {
+                favorites.value.push(detailMovie || movie);
             } else {
                 // 하트 해제 시 금고 배열에서 해당 영화를 제외(필터링)합니다.
                 favorites.value = favorites.value.filter(fav => fav.id !== movieId);
+            }
+
+            if (listMovie) {
+                listMovie.isFavorite = nextFavoriteState;
+            }
+
+            if (detailMovie) {
+                detailMovie.isFavorite = nextFavoriteState;
             }
 
             sessionStorage.setItem('favorites', JSON.stringify(favorites.value));

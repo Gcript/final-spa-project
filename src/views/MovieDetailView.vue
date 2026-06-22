@@ -43,7 +43,7 @@ const generateAiReview = async () => {
 
   try {
     const promptMessage = `
-    너는 영화 평론 유튜버야. 아 영ㅘ 데이터를 기반으로 블로그 글처럼 2~3문단 분량의 상세하고 흡입력 있는 추천평을 작성해줘(이모지 필수).
+    너는 영화 평론 유튜버야. 아래 영화 데이터를 기반으로 블로그 글처럼 2~3문단 분량의 상세하고 흡입력 있는 추천평을 작성해줘(이모지 필수).
     제목: ${store.selectedMovie.title}
     장르: ${store.selectedMovie.genres.map(g => g.name).join(', ')}
     평점: ${store.selectedMovie.vote_average.toFixed(1)}점
@@ -103,6 +103,13 @@ const generateAiReview = async () => {
                             {{ genre.name }}
                         </span>
                     </div>
+                    <button
+                        @click="store.toggleFavorite(store.selectedMovie.id)"
+                        :class="{ active: store.selectedMovie.isFavorite }"
+                        class="detail-fav-btn"
+                    >
+                        {{ store.selectedMovie.isFavorite ? '❤️ 찜 해제' : '🤍 찜하기' }}
+                    </button>
                     <div class="financial-box">
                         <div class="financial-item">
                             <span class="f-label">총 제작비</span>
@@ -277,6 +284,32 @@ const generateAiReview = async () => {
     font-weight: 500;
     color: #ced6e0;
     border: 1px solid #3d4852;
+}
+.detail-fav-btn {
+    width: 100%;
+    padding: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-bottom: 30px;
+    transition: 0.2s;
+}
+.detail-fav-btn:hover {
+    background: rgba(255, 71, 87, 0.28);
+    border-color: rgba(255, 71, 87, 0.6);
+}
+.detail-fav-btn.active {
+    background: #ff4757;
+    border-color: #ff4757;
+    box-shadow: 0 8px 22px rgba(255, 71, 87, 0.3);
+}
+.detail-fav-btn.active:hover {
+    background: #ff6b81;
+    border-color: #ff6b81;
 }
 
 /* 재무 및 시놉시스 상자 */

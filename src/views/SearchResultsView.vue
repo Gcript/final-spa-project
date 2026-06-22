@@ -1,25 +1,40 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { isMatchedTitle } from '../searchText';
 import { useMovieStore } from '../stores/movieStore';
 
-const store = useMovieStore();
+const route = useRoute();
 const router = useRouter();
+const store = useMovieStore();
 const defaultSortDirections = {
     popularity: 'desc',
     title: 'asc',
     releaseDate: 'desc',
     rating: 'desc'
 };
-const sortType = ref('popularity');
-const sortDirection = ref(defaultSortDirections.popularity);
 const searchKeyword = ref('');
 const searchGuideMessage = ref('');
+const sortType = ref('popularity');
+const sortDirection = ref(defaultSortDirections.popularity);
 const currentPage = ref(1);
 const pageSize = 6;
 
-const sortedMovies = computed(() => {
-    const copiedMovies = [...store.movies];
+const currentKeyword = computed(() => {
+    return String(route.query.keyword || '').trim();
+});
+
+const filteredMovies = computed(() => {
+    const keyword = currentKeyword.value;
+    if (!keyword) return [];
+
+    return store.movies.filter((movie) => {
+        return isMatchedTitle(movie.title, keyword);
+    });
+});
+
+const sortedFilteredMovies = computed(() => {
+    const copiedMovies = [...filteredMovies.value];
     const direction = sortDirection.value === 'asc' ? 1 : -1;
 
     if (sortType.value === 'popularity') {
@@ -57,13 +72,13 @@ const getSortMark = (targetSortType) => {
 };
 
 const totalPages = computed(() => {
-    return Math.ceil(sortedMovies.value.length / pageSize);
+    return Math.ceil(sortedFilteredMovies.value.length / pageSize);
 });
 
 const paginatedMovies = computed(() => {
     const startIndex = (currentPage.value - 1) * pageSize;
     const endIndex = startIndex + pageSize;
-    return sortedMovies.value.slice(startIndex, endIndex);
+    return sortedFilteredMovies.value.slice(startIndex, endIndex);
 });
 
 const changePage = (pageNumber) => {
@@ -99,20 +114,30 @@ const submitSearch = () => {
     });
 };
 
-// onMounted는 이 화면이 브라우저에 장착(Mount) 되는 순간을 감지하여 내부 코드를 즉시 실행합니다.
 onMounted(() => {
-    store.fetchMovies();
-    // [12주차 추가] 상세 정보에 갔다 돌아왔을 때 브라우저 탭 이름을 원래대로 복구합니다.
-    document.title = '국내 극장 화제작 | NETVUE';
+    searchKeyword.value = currentKeyword.value;
+    document.title = `검색 결과: ${currentKeyword.value} | NETVUE`;
+
+    if (store.movies.length === 0) {
+        store.fetchMovies();
+    }
+});
+
+watch(currentKeyword, (newKeyword) => {
+    searchKeyword.value = newKeyword;
+    searchGuideMessage.value = '';
+    currentPage.value = 1;
+    document.title = `검색 결과: ${newKeyword} | NETVUE`;
 });
 </script>
 
 <template>
     <main class="page">
         <div class="header-section">
-            <h1>🍿 국내 극장 화제작</h1>
-            <p class="sub-title">2025년 이후 국내 정식 개봉한 실시간 인기 상영작</p>
+            <h1>🔎 영화 검색 결과</h1>
+            <p class="sub-title">입력한 제목이 포함된 영화만 표시합니다.</p>
         </div>
+
         <form class="search-section" @submit.prevent="submitSearch">
             <input
                 v-model="searchKeyword"
@@ -123,6 +148,11 @@ onMounted(() => {
             <button type="submit" class="search-btn">검색</button>
         </form>
         <p v-if="searchGuideMessage" class="search-guide">{{ searchGuideMessage }}</p>
+
+        <div class="result-actions">
+            <RouterLink to="/movies" class="back-list-btn">전체 영화 목록으로 돌아가기</RouterLink>
+        </div>
+
         <div class="sort-section">
             <span class="sort-label">정렬</span>
             <button
@@ -154,9 +184,19 @@ onMounted(() => {
                 평점순{{ getSortMark('rating') }}
             </button>
         </div>
-        <div v-if="store.isLoading" class="status-message loading">⏳ 실시간 국내 개봉작 데이터를 싣고 오는 중입니다...</div>
+
+        <div v-if="store.isLoading" class="status-message loading">⏳ 검색에 사용할 영화 데이터를 불러오는 중입니다...</div>
         <div v-else-if="store.errorMessage" class="status-message error">🚨 {{ store.errorMessage }}</div>
+        <div v-else-if="!currentKeyword" class="status-message empty">
+            검색창에 영화 제목을 입력하면 검색 결과를 확인할 수 있습니다.
+        </div>
+        <div v-else-if="filteredMovies.length === 0" class="status-message empty">
+            "{{ currentKeyword }}"에 대한 검색 결과가 없습니다.
+        </div>
         <section v-else>
+            <p class="result-count">
+                "{{ currentKeyword }}" 검색 결과 {{ filteredMovies.length }}개
+            </p>
             <div class="movie-list">
                 <div v-for="movie in paginatedMovies" :key="movie.id" class="movie-card">
                     <img v-if="movie.poster_path" :src="`https://image.tmdb.org/t/p/w500${movie.poster_path}`" :alt="movie.title" class="poster" />
@@ -168,13 +208,10 @@ onMounted(() => {
                         <p class="overview">
                             {{ movie.overview ? movie.overview.substring(0, 60) + '...' : '국내에 등록된 줄거리 요약 정보가 없습니다.' }}
                         </p>
-                        <!-- 11주차 내용 동일 -->
-                        <button @click="store.toggleFavorite(movie.id)" :class="{ active: movie.isFavorite }"
-                            class="fav-btn">
+                        <button @click="store.toggleFavorite(movie.id)" :class="{ active: movie.isFavorite }" class="fav-btn">
                             {{ movie.isFavorite ? '❤️ 찜 해제' : '🤍 찜하기' }}
                         </button>
                     </div>
-                    <!-- 12주차 RouterLink 추가 -->
                     <RouterLink
                         :to="`/movies/${movie.id}`"
                         class="stretched-link"
@@ -222,7 +259,7 @@ onMounted(() => {
     margin-bottom: 30px;
     color: #2c3e50;
 }
-.sub-title { 
+.sub-title {
     color: #7f8c8d;
     font-size: 14px;
     margin-top: 5px;
@@ -232,7 +269,7 @@ onMounted(() => {
     justify-content: center;
     gap: 10px;
     max-width: 520px;
-    margin: 0 auto 20px;
+    margin: 0 auto 30px;
 }
 .search-input {
     flex: 1;
@@ -259,7 +296,26 @@ onMounted(() => {
     color: #ff4757;
     font-size: 14px;
     font-weight: bold;
-    margin: -8px 0 20px;
+    margin: -18px 0 22px;
+}
+.result-actions {
+    text-align: center;
+    margin-bottom: 22px;
+}
+.back-list-btn {
+    display: inline-block;
+    padding: 10px 18px;
+    border-radius: 20px;
+    background-color: #ffffff;
+    border: 1px solid #dfe4ea;
+    color: #2c3e50;
+    font-size: 14px;
+    font-weight: bold;
+    text-decoration: none;
+}
+.back-list-btn:hover {
+    border-color: #ff4757;
+    color: #ff4757;
 }
 .sort-section {
     display: flex;
@@ -307,6 +363,16 @@ onMounted(() => {
     color: #e74c3c;
     background-color: #fdeaea;
 }
+.empty {
+    color: #7f8c8d;
+    background-color: #ffffff;
+}
+.result-count {
+    text-align: center;
+    color: #2c3e50;
+    font-weight: bold;
+    margin-bottom: 24px;
+}
 .movie-list {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
@@ -343,9 +409,8 @@ onMounted(() => {
     cursor: not-allowed;
     background-color: #f1f2f6;
 }
-/* 🌟 [12주차 수정] 카드 내부에 투명 확장 링크를 가두기 위해 position: relative; 만 쏙 추가 */
 .movie-card {
-    position: relative; /* + 투명 링크 영역 확장을 위한 기준점 추가 */
+    position: relative;
     background: white;
     border-radius: 12px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.05);
@@ -389,10 +454,13 @@ onMounted(() => {
     font-weight: bold;
 }
 .release-date {
-    font-size: 13px;
     color: #7f8c8d;
     margin-bottom: 10px;
     font-size: 16px;
+}
+.rating {
+    color: #f39c12;
+    font-weight: bold;
 }
 .overview {
     font-size: 13px;
@@ -401,10 +469,9 @@ onMounted(() => {
     margin-bottom: 20px;
     line-height: 1.4;
 }
-/* 🌟 [12주차 수정] 투명 링크(1)보다 무조건 한 층 위로 올리기 위해 z-index: 2; 만 쏙 추가 */
 .fav-btn {
-    position: relative; /* + 레이어 층위 조절을 위한 포지션 추가 */
-    z-index: 2; /* + 투명 링크 위로 올려 버튼 단독 클릭 활성화 */
+    position: relative;
+    z-index: 2;
     width: 100%;
     padding: 12px;
     cursor: pointer;
@@ -421,7 +488,6 @@ onMounted(() => {
     background: #ff4757;
     color: white;
 }
-/* + [12주차 추가] 카드 껍데기를 가상으로 100% 덮는 투명 링크 스타일 */
 .stretched-link {
     position: absolute;
     top: 0;

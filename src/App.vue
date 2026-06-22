@@ -12,7 +12,7 @@ const totalFavoritesCount = computed(() => {
 });
 
 // [반응형 연산 2] TMDB vote_average 스펙에 맞춘 평균 평점 실시간 집계 로직입니다.
-const avrageFavoriteRating = computed(() => {
+const averageFavoriteRating = computed(() => {
     if (store.favorites.length === 0) return 0.0;
 
     // .reduce() 메서드를 사용하여 찜한 영화들의 평점 총합을 누적 계산합니다.
@@ -36,6 +36,7 @@ const avrageFavoriteRating = computed(() => {
         <nav class="nav-menu">
           <RouterLink to="/" class="nav-item">홈</RouterLink>
           <RouterLink to="/movies" class="nav-item">영화 목록</RouterLink>
+          <RouterLink to="/favorites" class="nav-item">찜 목록</RouterLink>
         </nav>
         <div class="header-dashboard">
           <div class="dashboard-badge favorite-count">
@@ -44,7 +45,7 @@ const avrageFavoriteRating = computed(() => {
           </div>
           <div class="dashboard-badge average-rating">
             <span class="badge-label">⭐️ 찜한 작품 평균 평점</span>
-            <span class="badge-value">{{ avrageFavoriteRating }} / 10</span>
+            <span class="badge-value">{{ averageFavoriteRating }} / 10</span>
           </div>
         </div>
       </div>

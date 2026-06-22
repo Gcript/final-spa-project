@@ -3,8 +3,8 @@ import { ref, computed, watch } from 'vue';
 
 export const useFavoritesStore = defineStore('favorites', () => {
     // 1. State (상태): 브라우저 스토리지에 저장된 데이터가 있으면 파싱해서 가져옵니다. 없으면 빈 배열로 초기화합니다.
-    const sacedFavorites = JSON.parse(localStorage.getItem('favorite_movies')) || [];
-    const favoriteMovies = ref(sacedFavorites);
+    const savedFavorites = JSON.parse(localStorage.getItem('favorite_movies')) || [];
+    const favoriteMovies = ref(savedFavorites);
 
     // 2. Getters (게터): 데이터를 계산해서 보여주는 안내원들
     // 2-1. 찜한 영화의 총 개수
